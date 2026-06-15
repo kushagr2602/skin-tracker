@@ -44,6 +44,7 @@ export interface DailyLog {
   user_id: string
   log_date: string
   photo_url: string | null
+  photo_url_right: string | null
   ai_severity: number | null
   user_severity: number | null
   ai_summary: string | null

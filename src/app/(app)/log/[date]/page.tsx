@@ -56,13 +56,28 @@ export default async function LogViewPage({ params }: { params: Promise<{ date: 
         </Button>
       </div>
 
-      {/* Photo */}
-      {log.photo_url && (
-        <div className={cn('rounded-xl overflow-hidden border-2', sev ? severityBg(sev).split(' ')[1] : 'border-neutral-200')}>
-          <div className="relative aspect-[4/3]">
-            <Image src={log.photo_url} alt="Skin photo" fill className="object-cover" unoptimized />
+      {/* Photos */}
+      {(log.photo_url || log.photo_url_right) && (
+        log.photo_url && log.photo_url_right ? (
+          <div className="grid grid-cols-2 gap-2">
+            {[{ url: log.photo_url, label: 'Left' }, { url: log.photo_url_right, label: 'Right' }].map(({ url, label }) => (
+              <div key={label} className="space-y-1">
+                <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide text-center">{label} side</p>
+                <div className={cn('rounded-xl overflow-hidden border-2', sev ? severityBg(sev).split(' ')[1] : 'border-neutral-200')}>
+                  <div className="relative aspect-square">
+                    <Image src={url} alt={`${label} side`} fill className="object-cover" unoptimized />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className={cn('rounded-xl overflow-hidden border-2', sev ? severityBg(sev).split(' ')[1] : 'border-neutral-200')}>
+            <div className="relative aspect-[4/3]">
+              <Image src={(log.photo_url || log.photo_url_right)!} alt="Skin photo" fill className="object-cover" unoptimized />
+            </div>
+          </div>
+        )
       )}
 
       {/* AI Summary */}

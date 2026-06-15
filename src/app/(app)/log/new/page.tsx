@@ -101,6 +101,7 @@ export default function NewLogPage() {
 
   // Photo + AI
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [photoUrlRight, setPhotoUrlRight] = useState<string | null>(null)
   const [aiSeverity, setAiSeverity] = useState<number | null>(null)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [userSeverity, setUserSeverity] = useState<number | null>(null)
@@ -160,8 +161,9 @@ export default function NewLogPage() {
     })
   }, [])
 
-  function handleAnalysis(analysis: GeminiAnalysis, url: string) {
-    setPhotoUrl(url)
+  function handleAnalysis(analysis: GeminiAnalysis, leftUrl: string, rightUrl?: string) {
+    setPhotoUrl(leftUrl)
+    setPhotoUrlRight(rightUrl ?? null)
     setAiSeverity(analysis.severity)
     setAiSummary(analysis.summary)
     setUserSeverity(analysis.severity)
@@ -239,7 +241,7 @@ export default function NewLogPage() {
     const supabase = createClient()
 
     const { data: log, error } = await supabase.from('daily_logs').upsert({
-      user_id: userId, log_date: logDate, photo_url: photoUrl,
+      user_id: userId, log_date: logDate, photo_url: photoUrl, photo_url_right: photoUrlRight,
       ai_severity: aiSeverity, user_severity: userSeverity,
       ai_summary: aiSummary, notes: notes.trim() || null,
     }, { onConflict: 'user_id,log_date' }).select().single()
@@ -301,7 +303,7 @@ export default function NewLogPage() {
 
         {/* Photo + AI */}
         <div className="rounded-2xl bg-white overflow-hidden p-4 space-y-4">
-          {userId && <PhotoUpload userId={userId} onAnalysis={handleAnalysis} existingPhotoUrl={photoUrl} />}
+          {userId && <PhotoUpload userId={userId} onAnalysis={handleAnalysis} existingPhotoUrl={photoUrl} existingPhotoUrlRight={photoUrlRight} />}
           {aiSummary && (
             <p className="text-sm text-neutral-500 italic bg-neutral-50 rounded-xl px-3 py-2.5">"{aiSummary}"</p>
           )}

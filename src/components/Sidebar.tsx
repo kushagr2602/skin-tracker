@@ -26,38 +26,72 @@ export default function Sidebar() {
     router.push('/login')
   }
 
-  return (
-    <aside className="flex flex-col w-56 shrink-0 bg-white border-r min-h-screen px-3 py-6">
-      <div className="flex items-center gap-2 px-3 mb-8">
-        <span className="text-2xl">🌿</span>
-        <span className="font-semibold text-lg tracking-tight">Skin Tracker</span>
-      </div>
+  const isActive = (href: string) =>
+    pathname === href || (href === '/log/new' && pathname.startsWith('/log'))
 
-      <nav className="flex flex-col gap-1 flex-1">
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r min-h-screen px-3 py-6">
+        <div className="flex items-center gap-2 px-3 mb-8">
+          <span className="text-2xl">🌿</span>
+          <span className="font-semibold text-lg tracking-tight">Skin Tracker</span>
+        </div>
+
+        <nav className="flex flex-col gap-1 flex-1">
+          {nav.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                isActive(href)
+                  ? 'bg-neutral-100 text-neutral-900'
+                  : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
+      </aside>
+
+      {/* Mobile top bar */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-white border-b">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🌿</span>
+          <span className="font-semibold tracking-tight">Skin Tracker</span>
+        </div>
+        <button onClick={handleLogout} className="text-neutral-400 hover:text-neutral-700 p-1">
+          <LogOut className="h-5 w-5" />
+        </button>
+      </header>
+
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t flex items-center justify-around px-2 h-16 safe-area-pb">
         {nav.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-              pathname === href || (href === '/log/new' && pathname.startsWith('/log'))
-                ? 'bg-neutral-100 text-neutral-900'
-                : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
+              'flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors',
+              isActive(href) ? 'text-neutral-900' : 'text-neutral-400'
             )}
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <Icon className={cn('h-5 w-5', isActive(href) ? 'stroke-[2.5px]' : '')} />
+            <span className="text-[10px] font-medium">{label}</span>
           </Link>
         ))}
       </nav>
-
-      <button
-        onClick={handleLogout}
-        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
-      >
-        <LogOut className="h-4 w-4" />
-        Sign out
-      </button>
-    </aside>
+    </>
   )
 }

@@ -5,10 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -19,65 +15,49 @@ export default function SignupPage() {
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-
     const supabase = createClient()
     const { error } = await supabase.auth.signUp({ email, password })
-
-    if (error) {
-      toast.error(error.message)
-      setLoading(false)
-      return
-    }
-
-    toast.success('Account created! Check your email to confirm.')
+    if (error) { toast.error(error.message); setLoading(false); return }
+    toast.success('Check your email to confirm your account!')
     router.push('/login')
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 to-orange-50 p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center space-y-2">
-          <div className="text-4xl">🌿</div>
-          <CardTitle className="text-2xl">Start tracking</CardTitle>
-          <CardDescription>Create your skin tracker account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+    <div className="min-h-screen bg-[#F2F2F7] flex flex-col items-center justify-center px-6 pt-safe">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <div className="text-6xl mb-4">🌿</div>
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-900">Create account</h1>
+          <p className="text-neutral-400 mt-2">Start tracking your skin today</p>
+        </div>
+
+        <form onSubmit={handleSignup} className="space-y-3">
+          <div className="rounded-2xl bg-white overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-neutral-100">
+              <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Email</p>
+              <input type="email" placeholder="you@example.com" value={email}
+                onChange={(e) => setEmail(e.target.value)} required autoComplete="email"
+                className="w-full bg-transparent text-neutral-900 text-[16px] outline-none placeholder:text-neutral-300" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                required
-              />
+            <div className="px-4 py-3.5">
+              <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Password</p>
+              <input type="password" placeholder="At least 6 characters" value={password}
+                onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password"
+                className="w-full bg-transparent text-neutral-900 text-[16px] outline-none placeholder:text-neutral-300" />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account…' : 'Create account'}
-            </Button>
-          </form>
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary underline underline-offset-4">
-              Sign in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+          </div>
+
+          <button type="submit" disabled={loading}
+            className="w-full py-4 rounded-2xl bg-neutral-900 text-white font-semibold text-base disabled:opacity-50 active:scale-[0.98] transition-transform mt-2">
+            {loading ? 'Creating account…' : 'Create account'}
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-neutral-400 mt-6">
+          Already have an account?{' '}
+          <Link href="/login" className="text-neutral-900 font-semibold">Sign in</Link>
+        </p>
+      </div>
     </div>
   )
 }

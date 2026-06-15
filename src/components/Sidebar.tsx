@@ -8,8 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 const nav = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/log/new', label: 'Log Today', icon: Camera },
+  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/log/new', label: 'Log', icon: Camera },
   { href: '/timeline', label: 'Timeline', icon: Images },
   { href: '/insights', label: 'Insights', icon: BarChart2 },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -31,66 +31,82 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 shrink-0 bg-white border-r min-h-screen px-3 py-6">
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r min-h-screen px-3 py-6">
         <div className="flex items-center gap-2 px-3 mb-8">
           <span className="text-2xl">🌿</span>
           <span className="font-semibold text-lg tracking-tight">Skin Tracker</span>
         </div>
-
         <nav className="flex flex-col gap-1 flex-1">
           {nav.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
+            <Link key={href} href={href}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                isActive(href)
-                  ? 'bg-neutral-100 text-neutral-900'
-                  : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                isActive(href) ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
               )}
             >
-              <Icon className="h-4 w-4" />
-              {label}
+              <Icon className="h-4 w-4" />{label}
             </Link>
           ))}
         </nav>
-
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+        <button onClick={handleLogout}
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700 transition-colors"
         >
-          <LogOut className="h-4 w-4" />
-          Sign out
+          <LogOut className="h-4 w-4" />Sign out
         </button>
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-white border-b">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🌿</span>
-          <span className="font-semibold tracking-tight">Skin Tracker</span>
-        </div>
-        <button onClick={handleLogout} className="text-neutral-400 hover:text-neutral-700 p-1">
-          <LogOut className="h-5 w-5" />
-        </button>
+      {/* ── Mobile top bar ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-5 pt-safe"
+        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '0.5px solid rgba(60,60,67,0.12)' }}
+      >
+        <span className="text-lg font-semibold tracking-tight flex items-center gap-2">
+          <span>🌿</span> Skin Tracker
+        </span>
       </header>
 
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t flex items-center justify-around px-2 h-16 safe-area-pb">
-        {nav.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              'flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors',
-              isActive(href) ? 'text-neutral-900' : 'text-neutral-400'
-            )}
-          >
-            <Icon className={cn('h-5 w-5', isActive(href) ? 'stroke-[2.5px]' : '')} />
-            <span className="text-[10px] font-medium">{label}</span>
-          </Link>
-        ))}
+      {/* ── Mobile bottom tab bar ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-1"
+        style={{
+          background: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: '0.5px solid rgba(60,60,67,0.12)',
+          paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+          height: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+        }}
+      >
+        {nav.map(({ href, label, icon: Icon }) => {
+          const active = isActive(href)
+          const isLog = href === '/log/new'
+          return (
+            <Link key={href} href={href}
+              className={cn(
+                'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-all',
+                isLog ? 'relative -mt-3' : ''
+              )}
+            >
+              {isLog ? (
+                /* Big center Log button */
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center shadow-lg">
+                    <Camera className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="text-[10px] font-medium text-neutral-500">Log</span>
+                </div>
+              ) : (
+                <>
+                  <Icon className={cn('h-6 w-6 transition-colors', active ? 'text-neutral-900' : 'text-neutral-400')}
+                    style={active ? { strokeWidth: 2.5 } : {}}
+                  />
+                  <span className={cn('text-[10px] font-medium transition-colors', active ? 'text-neutral-900' : 'text-neutral-400')}>
+                    {label}
+                  </span>
+                </>
+              )}
+            </Link>
+          )
+        })}
       </nav>
     </>
   )

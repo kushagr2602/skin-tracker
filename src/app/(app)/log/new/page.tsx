@@ -7,17 +7,28 @@ import { createClient } from '@/lib/supabase/client'
 import { todayISO } from '@/lib/utils'
 import PhotoUpload from '@/components/PhotoUpload'
 import SeverityMeter from '@/components/SeverityMeter'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
-import { X, Plus, Flame } from 'lucide-react'
+import { X, Plus, Flame, ChevronDown, ChevronUp } from 'lucide-react'
 import type { GeminiAnalysis, SkincareProduct, Medication } from '@/types'
 
 interface DietItem { food: string; isTrigger: boolean }
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="rounded-2xl bg-white overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-4 text-left"
+      >
+        <span className="font-semibold text-neutral-900">{title}</span>
+        {open ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  )
+}
 
 export default function NewLogPage() {
   const router = useRouter()
@@ -25,54 +36,41 @@ export default function NewLogPage() {
   const [saving, setSaving] = useState(false)
   const [logDate] = useState(todayISO())
 
-  // Photo + AI
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [aiSeverity, setAiSeverity] = useState<number | null>(null)
   const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [userSeverity, setUserSeverity] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
 
-  // Diet
   const [dietItems, setDietItems] = useState<DietItem[]>([])
   const [dietInput, setDietInput] = useState('')
 
-  // Skincare
   const [products, setProducts] = useState<SkincareProduct[]>([])
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [newProductName, setNewProductName] = useState('')
-  const [newProductCategory, setNewProductCategory] = useState('')
 
-  // Medications
   const [medications, setMedications] = useState<Medication[]>([])
   const [selectedMeds, setSelectedMeds] = useState<Set<string>>(new Set())
   const [newMedName, setNewMedName] = useState('')
-  const [newMedType, setNewMedType] = useState('')
 
-  // Lifestyle
-  const [sleep, setSleep] = useState<string>('')
-  const [stress, setStress] = useState<number>(5)
-  const [exercise, setExercise] = useState<string>('')
-  const [water, setWater] = useState<string>('')
-  const [cycleDay, setCycleDay] = useState<string>('')
+  const [sleep, setSleep] = useState('')
+  const [stress, setStress] = useState(5)
+  const [exercise, setExercise] = useState('')
+  const [water, setWater] = useState('')
+  const [cycleDay, setCycleDay] = useState('')
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setUserId(user.id)
-        loadLibraries(supabase, user.id)
+        supabase.from('skincare_products').select('*').eq('user_id', user.id).order('name')
+          .then(({ data }) => { if (data) setProducts(data) })
+        supabase.from('medications').select('*').eq('user_id', user.id).order('name')
+          .then(({ data }) => { if (data) setMedications(data) })
       }
     })
   }, [])
-
-  async function loadLibraries(supabase: ReturnType<typeof createClient>, uid: string) {
-    const [{ data: prods }, { data: meds }] = await Promise.all([
-      supabase.from('skincare_products').select('*').eq('user_id', uid).order('name'),
-      supabase.from('medications').select('*').eq('user_id', uid).order('name'),
-    ])
-    if (prods) setProducts(prods)
-    if (meds) setMedications(meds)
-  }
 
   function handleAnalysis(analysis: GeminiAnalysis, url: string) {
     setPhotoUrl(url)
@@ -81,110 +79,56 @@ export default function NewLogPage() {
     setUserSeverity(analysis.severity)
   }
 
-  function addDietItem() {
+  function addDiet() {
     if (!dietInput.trim()) return
-    setDietItems((prev) => [...prev, { food: dietInput.trim(), isTrigger: false }])
+    setDietItems((p) => [...p, { food: dietInput.trim(), isTrigger: false }])
     setDietInput('')
-  }
-
-  function toggleTrigger(i: number) {
-    setDietItems((prev) => prev.map((d, idx) => idx === i ? { ...d, isTrigger: !d.isTrigger } : d))
-  }
-
-  function removeDietItem(i: number) {
-    setDietItems((prev) => prev.filter((_, idx) => idx !== i))
   }
 
   async function addProduct() {
     if (!newProductName.trim() || !userId) return
     const supabase = createClient()
-    const { data, error } = await supabase
-      .from('skincare_products')
-      .insert({ user_id: userId, name: newProductName.trim(), category: newProductCategory.trim() || null })
-      .select()
-      .single()
-
-    if (!error && data) {
-      setProducts((prev) => [...prev, data])
-      setSelectedProducts((prev) => new Set([...prev, data.id]))
-      setNewProductName('')
-      setNewProductCategory('')
-    }
+    const { data } = await supabase.from('skincare_products')
+      .insert({ user_id: userId, name: newProductName.trim() }).select().single()
+    if (data) { setProducts((p) => [...p, data]); setSelectedProducts((s) => new Set([...s, data.id])) }
+    setNewProductName('')
   }
 
-  async function addMedication() {
+  async function addMed() {
     if (!newMedName.trim() || !userId) return
     const supabase = createClient()
-    const { data, error } = await supabase
-      .from('medications')
-      .insert({ user_id: userId, name: newMedName.trim(), type: newMedType.trim() || null })
-      .select()
-      .single()
-
-    if (!error && data) {
-      setMedications((prev) => [...prev, data])
-      setSelectedMeds((prev) => new Set([...prev, data.id]))
-      setNewMedName('')
-      setNewMedType('')
-    }
+    const { data } = await supabase.from('medications')
+      .insert({ user_id: userId, name: newMedName.trim() }).select().single()
+    if (data) { setMedications((m) => [...m, data]); setSelectedMeds((s) => new Set([...s, data.id])) }
+    setNewMedName('')
   }
 
   async function handleSave() {
     if (!userId) return
     setSaving(true)
-
     const supabase = createClient()
 
-    // Upsert daily log
-    const { data: log, error: logError } = await supabase
-      .from('daily_logs')
-      .upsert({
-        user_id: userId,
-        log_date: logDate,
-        photo_url: photoUrl,
-        ai_severity: aiSeverity,
-        user_severity: userSeverity,
-        ai_summary: aiSummary,
-        notes: notes.trim() || null,
-      }, { onConflict: 'user_id,log_date' })
-      .select()
-      .single()
+    const { data: log, error } = await supabase.from('daily_logs').upsert({
+      user_id: userId, log_date: logDate, photo_url: photoUrl,
+      ai_severity: aiSeverity, user_severity: userSeverity,
+      ai_summary: aiSummary, notes: notes.trim() || null,
+    }, { onConflict: 'user_id,log_date' }).select().single()
 
-    if (logError || !log) {
-      toast.error('Failed to save log: ' + logError?.message)
-      setSaving(false)
-      return
-    }
+    if (error || !log) { toast.error('Failed to save'); setSaving(false); return }
 
-    const logId = log.id
-
-    // Save diet entries
+    const id = log.id
     if (dietItems.length > 0) {
-      await supabase.from('diet_entries').delete().eq('log_id', logId)
-      await supabase.from('diet_entries').insert(
-        dietItems.map((d) => ({ log_id: logId, food_item: d.food, is_trigger: d.isTrigger }))
-      )
+      await supabase.from('diet_entries').delete().eq('log_id', id)
+      await supabase.from('diet_entries').insert(dietItems.map((d) => ({ log_id: id, food_item: d.food, is_trigger: d.isTrigger })))
     }
-
-    // Save skincare
-    await supabase.from('log_skincare').delete().eq('log_id', logId)
-    if (selectedProducts.size > 0) {
-      await supabase.from('log_skincare').insert(
-        [...selectedProducts].map((pid) => ({ log_id: logId, product_id: pid }))
-      )
-    }
-
-    // Save medications
-    await supabase.from('log_medications').delete().eq('log_id', logId)
-    if (selectedMeds.size > 0) {
-      await supabase.from('log_medications').insert(
-        [...selectedMeds].map((mid) => ({ log_id: logId, medication_id: mid, taken: true }))
-      )
-    }
-
-    // Save lifestyle
+    await supabase.from('log_skincare').delete().eq('log_id', id)
+    if (selectedProducts.size > 0)
+      await supabase.from('log_skincare').insert([...selectedProducts].map((pid) => ({ log_id: id, product_id: pid })))
+    await supabase.from('log_medications').delete().eq('log_id', id)
+    if (selectedMeds.size > 0)
+      await supabase.from('log_medications').insert([...selectedMeds].map((mid) => ({ log_id: id, medication_id: mid, taken: true })))
     await supabase.from('lifestyle_factors').upsert({
-      log_id: logId,
+      log_id: id,
       sleep_hours: sleep ? parseFloat(sleep) : null,
       stress_level: stress,
       exercise_minutes: exercise ? parseInt(exercise) : null,
@@ -197,182 +141,150 @@ export default function NewLogPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Today's Log</h1>
-        <p className="text-sm text-neutral-500 mt-1">{new Date(logDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+    <div className="min-h-screen bg-[#F2F2F7]">
+      <div className="px-4 pt-5 pb-2">
+        <h1 className="text-2xl font-bold tracking-tight">Today's Log</h1>
+        <p className="text-sm text-neutral-400 mt-0.5">
+          {new Date(logDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
       </div>
 
-      {/* Photo Section */}
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          {userId && (
-            <PhotoUpload userId={userId} onAnalysis={handleAnalysis} existingPhotoUrl={photoUrl} />
-          )}
-          {(aiSeverity !== null || userSeverity !== null) && (
-            <>
-              {aiSummary && (
-                <p className="text-sm text-neutral-600 bg-neutral-50 rounded-lg p-3 italic">
-                  "{aiSummary}"
-                </p>
-              )}
-              <SeverityMeter
-                aiSeverity={aiSeverity}
-                userSeverity={userSeverity}
-                onChange={setUserSeverity}
-              />
-            </>
-          )}
-          {photoUrl && aiSeverity === null && (
-            <SeverityMeter aiSeverity={null} userSeverity={userSeverity ?? 5} onChange={setUserSeverity} />
-          )}
-        </CardContent>
-      </Card>
+      <div className="px-4 space-y-3 pb-6">
 
-      {/* Factor Tabs */}
-      <Tabs defaultValue="diet">
-        <TabsList className="w-full">
-          <TabsTrigger value="diet" className="flex-1">Diet</TabsTrigger>
-          <TabsTrigger value="skincare" className="flex-1">Skincare</TabsTrigger>
-          <TabsTrigger value="meds" className="flex-1">Meds</TabsTrigger>
-          <TabsTrigger value="lifestyle" className="flex-1">Lifestyle</TabsTrigger>
-        </TabsList>
+        {/* Photo + AI */}
+        <div className="rounded-2xl bg-white overflow-hidden p-4 space-y-4">
+          {userId && <PhotoUpload userId={userId} onAnalysis={handleAnalysis} existingPhotoUrl={photoUrl} />}
+          {aiSummary && (
+            <p className="text-sm text-neutral-500 italic bg-neutral-50 rounded-xl px-3 py-2.5">"{aiSummary}"</p>
+          )}
+          {(aiSeverity !== null || userSeverity !== null || photoUrl) && (
+            <SeverityMeter aiSeverity={aiSeverity} userSeverity={userSeverity ?? 5} onChange={setUserSeverity} />
+          )}
+        </div>
 
-        {/* Diet Tab */}
-        <TabsContent value="diet" className="space-y-3 pt-3">
-          <div className="flex gap-2">
-            <Input
+        {/* Diet */}
+        <Section title="🥗 Diet">
+          <div className="flex gap-2 mb-3">
+            <input
+              className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm outline-none focus:border-neutral-400 transition-colors"
               placeholder="Add food item…"
               value={dietInput}
               onChange={(e) => setDietInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addDietItem())}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addDiet())}
             />
-            <Button variant="outline" size="icon" onClick={addDietItem}>
+            <button onClick={addDiet} className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center">
               <Plus className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
           <div className="flex flex-wrap gap-2">
             {dietItems.map((item, i) => (
-              <Badge
-                key={i}
-                variant={item.isTrigger ? 'destructive' : 'secondary'}
-                className="flex items-center gap-1 px-2 py-1 cursor-pointer select-none"
+              <span key={i}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium"
+                style={{ background: item.isTrigger ? '#FEE2E2' : '#F3F4F6', color: item.isTrigger ? '#991B1B' : '#374151' }}
               >
-                <button onClick={() => toggleTrigger(i)} title="Mark as trigger" className="hover:opacity-70">
-                  <Flame className={`h-3 w-3 ${item.isTrigger ? 'text-white' : 'text-neutral-400'}`} />
+                <button onClick={() => setDietItems((p) => p.map((d, idx) => idx === i ? { ...d, isTrigger: !d.isTrigger } : d))}>
+                  <Flame className="h-3.5 w-3.5" style={{ color: item.isTrigger ? '#EF4444' : '#9CA3AF' }} />
                 </button>
                 {item.food}
-                <button onClick={() => removeDietItem(i)} className="ml-1 hover:opacity-70">
-                  <X className="h-3 w-3" />
+                <button onClick={() => setDietItems((p) => p.filter((_, idx) => idx !== i))}>
+                  <X className="h-3.5 w-3.5 opacity-50" />
                 </button>
-              </Badge>
+              </span>
             ))}
+            {dietItems.length === 0 && <p className="text-sm text-neutral-400">Tap flame 🔥 to mark triggers</p>}
           </div>
-          {dietItems.length === 0 && (
-            <p className="text-sm text-neutral-400 text-center py-4">No food items yet. Tap flame icon to mark triggers.</p>
-          )}
-        </TabsContent>
+        </Section>
 
-        {/* Skincare Tab */}
-        <TabsContent value="skincare" className="space-y-3 pt-3">
-          <div className="flex flex-wrap gap-2">
+        {/* Skincare */}
+        <Section title="✨ Skincare">
+          <div className="flex flex-wrap gap-2 mb-3">
             {products.map((p) => (
-              <Badge
-                key={p.id}
-                variant={selectedProducts.has(p.id) ? 'default' : 'outline'}
-                className="cursor-pointer px-3 py-1"
-                onClick={() => setSelectedProducts((prev) => {
-                  const next = new Set(prev)
-                  next.has(p.id) ? next.delete(p.id) : next.add(p.id)
-                  return next
-                })}
+              <button key={p.id} onClick={() => setSelectedProducts((s) => { const n = new Set(s); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })}
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{ background: selectedProducts.has(p.id) ? '#1a1a1a' : '#F3F4F6', color: selectedProducts.has(p.id) ? '#fff' : '#374151' }}
               >
                 {p.name}
-                {p.category && <span className="ml-1 opacity-60 text-xs">· {p.category}</span>}
-              </Badge>
+              </button>
             ))}
           </div>
-          <div className="flex gap-2 pt-1">
-            <Input placeholder="Product name" value={newProductName} onChange={(e) => setNewProductName(e.target.value)} />
-            <Input placeholder="Category (optional)" value={newProductCategory} onChange={(e) => setNewProductCategory(e.target.value)} className="w-36" />
-            <Button variant="outline" size="icon" onClick={addProduct}><Plus className="h-4 w-4" /></Button>
+          <div className="flex gap-2">
+            <input className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm outline-none focus:border-neutral-400"
+              placeholder="Add product…" value={newProductName} onChange={(e) => setNewProductName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addProduct())} />
+            <button onClick={addProduct} className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center">
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
-        </TabsContent>
+        </Section>
 
-        {/* Meds Tab */}
-        <TabsContent value="meds" className="space-y-3 pt-3">
-          <div className="flex flex-wrap gap-2">
+        {/* Medications */}
+        <Section title="💊 Medications">
+          <div className="flex flex-wrap gap-2 mb-3">
             {medications.map((m) => (
-              <Badge
-                key={m.id}
-                variant={selectedMeds.has(m.id) ? 'default' : 'outline'}
-                className="cursor-pointer px-3 py-1"
-                onClick={() => setSelectedMeds((prev) => {
-                  const next = new Set(prev)
-                  next.has(m.id) ? next.delete(m.id) : next.add(m.id)
-                  return next
-                })}
+              <button key={m.id} onClick={() => setSelectedMeds((s) => { const n = new Set(s); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n })}
+                className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                style={{ background: selectedMeds.has(m.id) ? '#1a1a1a' : '#F3F4F6', color: selectedMeds.has(m.id) ? '#fff' : '#374151' }}
               >
                 {m.name}
-                {m.type && <span className="ml-1 opacity-60 text-xs">· {m.type}</span>}
-              </Badge>
+              </button>
             ))}
           </div>
-          <div className="flex gap-2 pt-1">
-            <Input placeholder="Medication name" value={newMedName} onChange={(e) => setNewMedName(e.target.value)} />
-            <Input placeholder="Type (e.g. topical)" value={newMedType} onChange={(e) => setNewMedType(e.target.value)} className="w-36" />
-            <Button variant="outline" size="icon" onClick={addMedication}><Plus className="h-4 w-4" /></Button>
+          <div className="flex gap-2">
+            <input className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm outline-none focus:border-neutral-400"
+              placeholder="Add medication…" value={newMedName} onChange={(e) => setNewMedName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMed())} />
+            <button onClick={addMed} className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center">
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
-        </TabsContent>
+        </Section>
 
-        {/* Lifestyle Tab */}
-        <TabsContent value="lifestyle" className="space-y-4 pt-3">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>Sleep (hours)</Label>
-              <Input type="number" min="0" max="24" step="0.5" placeholder="7.5" value={sleep} onChange={(e) => setSleep(e.target.value)} />
+        {/* Lifestyle */}
+        <Section title="🌙 Lifestyle">
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {[
+              { label: 'Sleep (hrs)', val: sleep, set: setSleep, placeholder: '7.5', type: 'number', step: '0.5' },
+              { label: 'Water (glasses)', val: water, set: setWater, placeholder: '8', type: 'number', step: '1' },
+              { label: 'Exercise (min)', val: exercise, set: setExercise, placeholder: '30', type: 'number', step: '5' },
+              { label: 'Cycle day', val: cycleDay, set: setCycleDay, placeholder: '1–28', type: 'number', step: '1' },
+            ].map(({ label, val, set, placeholder, type, step }) => (
+              <div key={label}>
+                <p className="text-xs text-neutral-400 font-medium mb-1">{label}</p>
+                <input type={type} step={step} placeholder={placeholder} value={val}
+                  onChange={(e) => set(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm outline-none focus:border-neutral-400" />
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="flex justify-between mb-1">
+              <p className="text-xs text-neutral-400 font-medium">Stress level</p>
+              <p className="text-xs font-semibold text-neutral-700">{stress}/10</p>
             </div>
-            <div className="space-y-1">
-              <Label>Water (glasses)</Label>
-              <Input type="number" min="0" max="30" placeholder="8" value={water} onChange={(e) => setWater(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Exercise (minutes)</Label>
-              <Input type="number" min="0" placeholder="30" value={exercise} onChange={(e) => setExercise(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Cycle day (optional)</Label>
-              <Input type="number" min="1" max="40" placeholder="Day 1–28" value={cycleDay} onChange={(e) => setCycleDay(e.target.value)} />
+            <input type="range" min="1" max="10" value={stress} onChange={(e) => setStress(Number(e.target.value))}
+              className="w-full accent-neutral-800 h-1" />
+            <div className="flex justify-between text-[10px] text-neutral-300 mt-1">
+              <span>Calm</span><span>Stressed</span>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Stress level: {stress}/10</Label>
-            <input
-              type="range" min="1" max="10" value={stress}
-              onChange={(e) => setStress(Number(e.target.value))}
-              className="w-full accent-neutral-800"
-            />
-            <div className="flex justify-between text-xs text-neutral-400">
-              <span>Calm (1)</span><span>Moderate (5)</span><span>Very stressed (10)</span>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+        </Section>
 
-      {/* Notes */}
-      <div className="space-y-2">
-        <Label>Notes (optional)</Label>
-        <Textarea
-          placeholder="Anything else worth noting today?"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-        />
+        {/* Notes */}
+        <div className="rounded-2xl bg-white overflow-hidden p-4">
+          <p className="text-sm font-medium text-neutral-400 mb-2">Notes</p>
+          <Textarea placeholder="Anything else worth noting?" value={notes}
+            onChange={(e) => setNotes(e.target.value)} rows={3}
+            className="border-0 bg-neutral-50 rounded-xl resize-none focus-visible:ring-0 text-sm" />
+        </div>
+
+        {/* Save */}
+        <button onClick={handleSave} disabled={saving}
+          className="w-full py-4 rounded-2xl bg-neutral-900 text-white font-semibold text-base disabled:opacity-50 active:scale-[0.98] transition-transform">
+          {saving ? 'Saving…' : 'Save Log'}
+        </button>
       </div>
 
-      <Button className="w-full" size="lg" onClick={handleSave} disabled={saving}>
-        {saving ? 'Saving…' : 'Save Log'}
-      </Button>
+      <div className="bottom-nav-spacer" />
     </div>
   )
 }

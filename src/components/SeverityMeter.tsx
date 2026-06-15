@@ -1,8 +1,16 @@
 'use client'
 
-import { Slider } from '@/components/ui/slider'
-import { Badge } from '@/components/ui/badge'
-import { cn, severityBg, severityColor, severityLabel } from '@/lib/utils'
+const LEVELS = [
+  { emoji: '😊', label: 'Clear', min: 1, max: 2, value: 1, bg: '#F0FDF4', border: '#16A34A', text: '#15803D' },
+  { emoji: '🙂', label: 'Mild', min: 3, max: 4, value: 3, bg: '#F7FEE7', border: '#65A30D', text: '#4D7C0F' },
+  { emoji: '😐', label: 'Moderate', min: 5, max: 6, value: 5, bg: '#FEFCE8', border: '#CA8A04', text: '#854D0E' },
+  { emoji: '😣', label: 'Severe', min: 7, max: 8, value: 7, bg: '#FFF7ED', border: '#EA580C', text: '#9A3412' },
+  { emoji: '😖', label: 'Very bad', min: 9, max: 10, value: 9, bg: '#FEF2F2', border: '#DC2626', text: '#991B1B' },
+]
+
+function bucketFor(n: number) {
+  return LEVELS.find((l) => n >= l.min && n <= l.max) ?? LEVELS[2]
+}
 
 interface Props {
   aiSeverity: number | null
@@ -11,45 +19,48 @@ interface Props {
 }
 
 export default function SeverityMeter({ aiSeverity, userSeverity, onChange }: Props) {
-  const displayed = userSeverity ?? aiSeverity ?? 5
+  const current = userSeverity ?? aiSeverity
+  const currentBucket = current !== null ? bucketFor(current) : null
+  const aiBucket = aiSeverity !== null ? bucketFor(aiSeverity) : null
+  const userOverrode = userSeverity !== null && aiBucket && currentBucket && aiBucket.value !== currentBucket.value
 
   return (
-    <div className="space-y-4">
-      {aiSeverity !== null && (
-        <div className={cn('rounded-lg border p-3 text-sm', severityBg(aiSeverity))}>
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-neutral-700">AI Assessment</span>
-            <Badge variant="outline" className={cn('font-bold', severityColor(aiSeverity))}>
-              {aiSeverity}/10 · {severityLabel(aiSeverity)}
-            </Badge>
-          </div>
-        </div>
+    <div className="space-y-2.5">
+      {aiSeverity !== null && aiBucket ? (
+        <p className="text-xs text-neutral-400">
+          AI: <span style={{ color: aiBucket.text }}>{aiBucket.emoji} {aiBucket.label}</span>
+          {userOverrode ? ' · you overrode this' : ' · tap to change'}
+        </p>
+      ) : (
+        <p className="text-xs text-neutral-400">How's your skin today?</p>
       )}
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-neutral-700">
-            {aiSeverity !== null && userSeverity !== null ? 'Your override' : 'Severity rating'}
-          </span>
-          <Badge variant="outline" className={cn('font-bold text-base px-3 py-1', severityColor(displayed))}>
-            {displayed}/10 · {severityLabel(displayed)}
-          </Badge>
-        </div>
-
-        <Slider
-          min={1}
-          max={10}
-          step={1}
-          value={[displayed]}
-          onValueChange={([val]) => onChange(val)}
-          className="w-full"
-        />
-
-        <div className="flex justify-between text-xs text-neutral-400">
-          <span>Clear (1)</span>
-          <span>Moderate (5)</span>
-          <span>Severe (10)</span>
-        </div>
+      <div className="grid grid-cols-5 gap-1.5">
+        {LEVELS.map((level) => {
+          const isSelected = currentBucket?.value === level.value
+          const isAIPick = aiBucket?.value === level.value && !isSelected
+          return (
+            <button
+              key={level.value}
+              onClick={() => onChange(level.value)}
+              className="flex flex-col items-center justify-center rounded-xl py-3 gap-0.5 transition-all active:scale-95"
+              style={{
+                background: isSelected ? level.bg : '#F9FAFB',
+                border: `1.5px solid ${isSelected ? level.border : '#E5E7EB'}`,
+              }}
+            >
+              <span className="text-xl leading-none">{level.emoji}</span>
+              <span
+                className="text-[10px] font-medium leading-tight mt-0.5"
+                style={{ color: isSelected ? level.text : '#9CA3AF' }}
+              >
+                {level.label}
+              </span>
+              {isAIPick && (
+                <span className="text-[8px] font-medium" style={{ color: '#D1D5DB' }}>AI</span>
+              )}
+            </button>
+          )
+        })}
       </div>
     </div>
   )

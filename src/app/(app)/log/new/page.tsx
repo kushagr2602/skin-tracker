@@ -8,8 +8,8 @@ import { todayISO } from '@/lib/utils'
 import PhotoUpload from '@/components/PhotoUpload'
 import SeverityMeter from '@/components/SeverityMeter'
 import { Textarea } from '@/components/ui/textarea'
-import { X, Plus, Flame, ChevronDown, ChevronUp } from 'lucide-react'
-import type { GeminiAnalysis, SkincareProduct, Medication, MealType, FREQUENCY_LABELS } from '@/types'
+import { X, Plus, Flame, ChevronDown, ChevronUp, Copy, Loader2 } from 'lucide-react'
+import type { GeminiAnalysis, SkincareProduct, Medication, MealType } from '@/types'
 import { WORKOUT_TYPES, WORKOUT_INTENSITIES } from '@/types'
 
 interface DietItem { food: string; isTrigger: boolean; meal: MealType }
@@ -35,17 +35,59 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   )
 }
 
-function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (val: string) => void }) {
+function FoodAddRow({ placeholder, foodHistory, onAdd }: {
+  placeholder: string
+  foodHistory: string[]
+  onAdd: (val: string) => void
+}) {
   const [val, setVal] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const suggestions = val.trim().length > 0
+    ? foodHistory.filter((f) => f.toLowerCase().includes(val.toLowerCase())).slice(0, 5)
+    : []
+
+  function commit(text: string) {
+    const t = text.trim()
+    if (!t) return
+    onAdd(t)
+    setVal('')
+    setOpen(false)
+  }
+
   return (
-    <div className="flex gap-2 mt-2">
-      <input className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm outline-none focus:border-neutral-400 transition-colors"
-        placeholder={placeholder} value={val} onChange={(e) => setVal(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (val.trim()) { onAdd(val.trim()); setVal('') } } }} />
-      <button onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal('') } }}
-        className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center flex-shrink-0">
-        <Plus className="h-4 w-4" />
-      </button>
+    <div className="relative mt-2">
+      <div className="flex gap-2">
+        <input
+          className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm outline-none focus:border-neutral-400 transition-colors"
+          placeholder={placeholder}
+          value={val}
+          onChange={(e) => { setVal(e.target.value); setOpen(true) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(val) } }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+        <button
+          onClick={() => commit(val)}
+          className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center flex-shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+      {open && suggestions.length > 0 && (
+        <div className="absolute left-0 right-12 top-full mt-1 bg-white rounded-xl border border-neutral-100 shadow-lg overflow-hidden z-10">
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              onMouseDown={() => commit(s)}
+              className="w-full text-left px-3 py-2.5 text-sm text-neutral-700 flex items-center gap-2 border-b border-neutral-50 last:border-0 hover:bg-neutral-50"
+            >
+              <span className="text-[10px] text-neutral-300">↩</span>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -54,6 +96,7 @@ export default function NewLogPage() {
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [copyingYesterday, setCopyingYesterday] = useState(false)
   const [logDate] = useState(todayISO())
 
   // Photo + AI
@@ -63,8 +106,9 @@ export default function NewLogPage() {
   const [userSeverity, setUserSeverity] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
 
-  // Diet — per meal
+  // Diet — per meal + history for autocomplete
   const [dietItems, setDietItems] = useState<DietItem[]>([])
+  const [foodHistory, setFoodHistory] = useState<string[]>([])
 
   // Skincare + meds
   const [products, setProducts] = useState<SkincareProduct[]>([])
@@ -83,20 +127,94 @@ export default function NewLogPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUserId(user.id)
-        supabase.from('skincare_products').select('*').eq('user_id', user.id).order('name')
-          .then(({ data }) => { if (data) setProducts(data) })
-        supabase.from('medications').select('*').eq('user_id', user.id).order('name')
-          .then(({ data }) => { if (data) setMedications(data) })
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      setUserId(user.id)
+
+      const [{ data: prods }, { data: meds }, { data: recentLogs }] = await Promise.all([
+        supabase.from('skincare_products').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('medications').select('*').eq('user_id', user.id).order('name'),
+        supabase.from('daily_logs').select('id').eq('user_id', user.id)
+          .order('log_date', { ascending: false }).limit(90),
+      ])
+
+      if (prods) setProducts(prods)
+      if (meds) setMedications(meds)
+
+      if (recentLogs && recentLogs.length > 0) {
+        const { data: foodData } = await supabase
+          .from('diet_entries')
+          .select('food_item')
+          .in('log_id', recentLogs.map((l) => l.id))
+
+        if (foodData) {
+          const seen = new Set<string>()
+          const unique: string[] = []
+          for (const row of foodData) {
+            const key = row.food_item.toLowerCase()
+            if (!seen.has(key)) { seen.add(key); unique.push(row.food_item) }
+          }
+          setFoodHistory(unique)
+        }
       }
     })
   }, [])
 
   function handleAnalysis(analysis: GeminiAnalysis, url: string) {
-    setPhotoUrl(url); setAiSeverity(analysis.severity)
-    setAiSummary(analysis.summary); setUserSeverity(analysis.severity)
+    setPhotoUrl(url)
+    setAiSeverity(analysis.severity)
+    setAiSummary(analysis.summary)
+    setUserSeverity(analysis.severity)
+  }
+
+  async function copyYesterdayRoutine() {
+    if (!userId) return
+    setCopyingYesterday(true)
+    const supabase = createClient()
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yDate = yesterday.toISOString().split('T')[0]
+
+    const { data: yLog } = await supabase
+      .from('daily_logs')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('log_date', yDate)
+      .single()
+
+    if (!yLog) {
+      toast.info('No log found for yesterday')
+      setCopyingYesterday(false)
+      return
+    }
+
+    const [{ data: skincare }, { data: meds }, { data: diet }] = await Promise.all([
+      supabase.from('log_skincare').select('product_id').eq('log_id', yLog.id),
+      supabase.from('log_medications').select('medication_id').eq('log_id', yLog.id),
+      supabase.from('diet_entries').select('food_item, is_trigger, meal_type').eq('log_id', yLog.id),
+    ])
+
+    let count = 0
+    if (skincare && skincare.length > 0) {
+      setSelectedProducts(new Set(skincare.map((s) => s.product_id)))
+      count += skincare.length
+    }
+    if (meds && meds.length > 0) {
+      setSelectedMeds(new Set(meds.map((m) => m.medication_id)))
+      count += meds.length
+    }
+    if (diet && diet.length > 0) {
+      setDietItems(diet.map((d) => ({
+        food: d.food_item,
+        meal: (d.meal_type ?? 'meal') as MealType,
+        isTrigger: d.is_trigger,
+      })))
+      count += diet.length
+    }
+
+    setCopyingYesterday(false)
+    if (count === 0) toast.info("Yesterday's log was empty")
+    else toast.success(`Copied ${count} item${count !== 1 ? 's' : ''} from yesterday`)
   }
 
   function addFood(meal: MealType, food: string) {
@@ -160,11 +278,23 @@ export default function NewLogPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F2F7]">
-      <div className="px-4 pt-5 pb-2">
-        <h1 className="text-2xl font-bold tracking-tight">Today's Log</h1>
-        <p className="text-sm text-neutral-400 mt-0.5">
-          {new Date(logDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
+      <div className="px-4 pt-5 pb-2 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Today's Log</h1>
+          <p className="text-sm text-neutral-400 mt-0.5">
+            {new Date(logDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <button
+          onClick={copyYesterdayRoutine}
+          disabled={copyingYesterday || !userId}
+          className="flex items-center gap-1.5 rounded-xl bg-white border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 active:scale-95 transition-all disabled:opacity-40 mt-1 flex-shrink-0"
+        >
+          {copyingYesterday
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Copy className="h-3.5 w-3.5" />}
+          Copy yesterday
+        </button>
       </div>
 
       <div className="px-4 space-y-3 pb-6">
@@ -175,9 +305,7 @@ export default function NewLogPage() {
           {aiSummary && (
             <p className="text-sm text-neutral-500 italic bg-neutral-50 rounded-xl px-3 py-2.5">"{aiSummary}"</p>
           )}
-          {(aiSeverity !== null || userSeverity !== null || photoUrl) && (
-            <SeverityMeter aiSeverity={aiSeverity} userSeverity={userSeverity ?? 5} onChange={setUserSeverity} />
-          )}
+          <SeverityMeter aiSeverity={aiSeverity} userSeverity={userSeverity} onChange={setUserSeverity} />
         </div>
 
         {/* Meals */}
@@ -208,7 +336,11 @@ export default function NewLogPage() {
                   })}
                   {items.length === 0 && <span className="text-xs text-neutral-300">Nothing added yet</span>}
                 </div>
-                <AddRow placeholder={`Add ${label.toLowerCase()} item…`} onAdd={(v) => addFood(key, v)} />
+                <FoodAddRow
+                  placeholder={`Add ${label.toLowerCase()} item…`}
+                  foodHistory={foodHistory}
+                  onAdd={(v) => addFood(key, v)}
+                />
               </div>
             )
           })}

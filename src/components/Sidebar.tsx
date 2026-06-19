@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Camera, Images, BarChart2, Settings, LogOut, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, Camera, Images, BarChart2, Settings, LogOut, MessageCircle, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -23,6 +23,7 @@ const desktopNav = [
   { href: '/log/new', label: 'Log', icon: Camera },
   { href: '/timeline', label: 'Timeline', icon: Images },
   { href: '/insights', label: 'Insights', icon: BarChart2 },
+  { href: '/improve', label: 'Improve', icon: Wand2 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 

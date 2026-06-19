@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, Wand2, ChevronRight } from 'lucide-react'
 import ProductPhotoIdentifier from '@/components/ProductPhotoIdentifier'
 import type { SkincareProduct, Medication, Frequency, GeminiProductID } from '@/types'
 import { FREQUENCY_LABELS } from '@/types'
@@ -164,6 +165,18 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+
+        {/* Improvement agent */}
+        <Link href="/improve" className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 active:scale-[0.99] transition-transform">
+          <div className="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center flex-shrink-0">
+            <Wand2 className="h-4.5 w-4.5 text-neutral-700" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-neutral-900">Improvement agents</p>
+            <p className="text-[11px] text-neutral-400">Let the AI propose what to build next</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-neutral-300" />
+        </Link>
 
         {/* Skincare library */}
         <div>

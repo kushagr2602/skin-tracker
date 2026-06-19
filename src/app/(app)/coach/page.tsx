@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { Send, Loader2, Sparkles, ClipboardList, ChevronRight } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -116,6 +117,24 @@ export default function CoachPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Lifestyle intake entry point */}
+        {showSuggestions && (
+          <Link
+            href="/coach/setup"
+            className="flex items-center gap-3 bg-white rounded-2xl border border-neutral-200 px-4 py-3.5 active:scale-[0.98] transition-all"
+            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+          >
+            <div className="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center flex-shrink-0">
+              <ClipboardList className="h-4.5 w-4.5 text-neutral-700" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-neutral-900">Set up your lifestyle profile</p>
+              <p className="text-[11px] text-neutral-400 leading-snug">Describe your day — I'll interview you about acne triggers</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-neutral-300 flex-shrink-0" />
+          </Link>
         )}
 
         {/* Suggested questions — only shown before first user message */}

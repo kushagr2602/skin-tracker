@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 // These are what the LLM sees — it reads the descriptions and decides which
 // tool to call and with what args. Good descriptions = better decisions.
 
-const TOOL_DECLARATIONS: FunctionDeclaration[] = [
+const COACH_TOOLS: FunctionDeclaration[] = [
   {
     name: 'get_recent_logs',
     description:
@@ -60,6 +60,37 @@ const TOOL_DECLARATIONS: FunctionDeclaration[] = [
     description:
       'Compare average skin severity across low (1–3), medium (4–6), and high (7–10) stress days. Use to check if stress affects skin.',
     parameters: { type: SchemaType.OBJECT, properties: {} },
+  },
+  {
+    name: 'get_lifestyle_profile',
+    description:
+      "Read the lifestyle profile the user described during intake — their stated habits and likely acne triggers. Use this to personalize answers to who they actually are.",
+    parameters: { type: SchemaType.OBJECT, properties: {} },
+  },
+]
+
+// Intake mode gets a different toolset: it can SAVE a profile (a write tool,
+// not just a read tool). This is the agent taking an action, not just answering.
+const INTAKE_TOOLS: FunctionDeclaration[] = [
+  {
+    name: 'save_lifestyle_profile',
+    description:
+      "Save the user's lifestyle profile once you've gathered enough acne-relevant detail. Call this near the end of the interview.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        summary: {
+          type: SchemaType.STRING,
+          description: "A concise 2–4 sentence summary of the user's acne-relevant lifestyle.",
+        },
+        triggers: {
+          type: SchemaType.ARRAY,
+          items: { type: SchemaType.STRING },
+          description: "The user's most likely acne triggers or risk factors, e.g. ['high dairy intake', 'irregular sleep', 'doesn't cleanse after gym'].",
+        },
+      },
+      required: ['summary', 'triggers'],
+    },
   },
 ]
 
@@ -278,6 +309,22 @@ async function executeTool(name: string, args: Record<string, unknown>, supabase
         }))
     }
 
+    case 'get_lifestyle_profile': {
+      const { data: { user: u } } = await supabase.auth.getUser()
+      const profile = u?.user_metadata?.lifestyle_profile
+      return profile ?? 'No lifestyle profile saved yet. Suggest the user set one up on the Coach setup page.'
+    }
+
+    case 'save_lifestyle_profile': {
+      const summary = (args.summary as string) ?? ''
+      const triggers = (args.triggers as string[]) ?? []
+      const { error } = await supabase.auth.updateUser({
+        data: { lifestyle_profile: { summary, triggers, updated_at: new Date().toISOString() } },
+      })
+      if (error) return { saved: false, error: error.message }
+      return { saved: true, summary, triggers }
+    }
+
     default:
       return { error: `Unknown tool: ${name}` }
   }
@@ -295,23 +342,41 @@ export async function POST(req: NextRequest) {
 
   // history: previous text exchanges from the client [{role, content}, ...]
   // message: the current user message
-  const { message, history = [] } = await req.json()
+  // mode: 'coach' (answer questions from data) or 'intake' (interview the user)
+  const { message, history = [], mode = 'coach' } = await req.json()
+  const isIntake = mode === 'intake'
 
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    // The system instruction defines the agent's personality and strategy
-    systemInstruction: `You are a personal skin health coach. You have access to the user's acne tracking data via tools.
+  // The system instruction is where the agent's STRATEGY lives. Same loop,
+  // same model — swapping this prompt + toolset turns a Q&A bot into an
+  // interviewer that drives the conversation itself.
+  const COACH_PROMPT = `You are a personal skin health coach. You have access to the user's acne tracking data via tools.
 
 When asked a question:
 1. Call the relevant tools to get their actual data — never answer from generic knowledge alone
 2. If the question needs multiple data points (e.g. "what's causing my flares?" needs both food and stress data), call multiple tools
-3. Ground every answer in specific numbers from their data
-4. Be concise: 2–3 sentences unless the user asks for more detail
-5. End with one concrete, actionable suggestion when relevant
+3. Call get_lifestyle_profile to read what the user told you about their habits and known triggers — use it to personalize answers
+4. Ground every answer in specific numbers from their data
+5. Be concise: 2–3 sentences unless the user asks for more detail
+6. End with one concrete, actionable suggestion when relevant
 
-If there's not enough data yet, say what they should start logging to get better insights.`,
-    tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
+If there's not enough data yet, say what they should start logging to get better insights.`
+
+  const INTAKE_PROMPT = `You are conducting a friendly intake interview to understand someone's lifestyle as it relates to ACNE.
+
+The user's FIRST message is a free-form description of their daily schedule and lifestyle. Your job:
+1. Read what they wrote and figure out which acne-relevant factors are still unclear or missing.
+2. Ask exactly ONE short follow-up question at a time (max ~15 words). Wait for their answer before asking the next.
+3. Only ask about things that plausibly affect acne: dairy intake, sugar / high-glycemic foods, water, sleep amount & consistency, stress, exercise and whether they cleanse after sweating, current skincare routine (cleanser / actives / moisturizer / SPF), frequently touching face or phone, hormonal or menstrual patterns, recent new products, medications & supplements, alcohol, smoking.
+4. Never re-ask something they already told you. Never ask multiple questions in one message.
+5. After about 4–6 useful answers (or sooner if you clearly have enough), call save_lifestyle_profile with a concise summary and their most likely triggers. Then confirm it's saved and tell them the 2–3 things most worth logging daily.
+
+Be warm and concise. One question per message.`
+
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    systemInstruction: isIntake ? INTAKE_PROMPT : COACH_PROMPT,
+    tools: [{ functionDeclarations: isIntake ? INTAKE_TOOLS : COACH_TOOLS }],
   })
 
   // Convert client history (simple {role, content}) to Gemini format

@@ -2,13 +2,24 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Camera, Images, BarChart2, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Camera, Images, BarChart2, Settings, LogOut, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
+// Log is at index 2 (center of 5) so it renders as the raised center button
 const nav = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/coach', label: 'Coach', icon: MessageCircle },
+  { href: '/log/new', label: 'Log', icon: Camera },
+  { href: '/insights', label: 'Insights', icon: BarChart2 },
+  { href: '/settings', label: 'Settings', icon: Settings },
+]
+
+// Timeline is still accessible at /timeline (linked from Insights / Dashboard)
+const desktopNav = [
+  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/coach', label: 'Coach', icon: MessageCircle },
   { href: '/log/new', label: 'Log', icon: Camera },
   { href: '/timeline', label: 'Timeline', icon: Images },
   { href: '/insights', label: 'Insights', icon: BarChart2 },
@@ -38,7 +49,7 @@ export default function Sidebar() {
           <span className="font-semibold text-lg tracking-tight">Skin Tracker</span>
         </div>
         <nav className="flex flex-col gap-1 flex-1">
-          {nav.map(({ href, label, icon: Icon }) => (
+          {desktopNav.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href}
               className={cn(
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',

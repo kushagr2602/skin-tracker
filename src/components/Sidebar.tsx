@@ -6,6 +6,7 @@ import { LayoutDashboard, Camera, Images, BarChart2, Settings, LogOut, MessageCi
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import Logo from '@/components/Logo'
 
 // Log is at index 2 (center of 5) so it renders as the raised center button
 const nav = [
@@ -46,7 +47,7 @@ export default function Sidebar() {
       {/* ── Desktop sidebar ── */}
       <aside className="hidden md:flex flex-col w-60 shrink-0 bg-white border-r min-h-screen px-3 py-6">
         <div className="flex items-center gap-2 px-3 mb-8">
-          <span className="text-2xl">🌿</span>
+          <Logo size={26} />
           <span className="font-semibold text-lg tracking-tight">Skin Tracker</span>
         </div>
         <nav className="flex flex-col gap-1 flex-1">
@@ -73,7 +74,7 @@ export default function Sidebar() {
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '0.5px solid rgba(60,60,67,0.12)' }}
       >
         <span className="text-lg font-semibold tracking-tight flex items-center gap-2">
-          <span>🌿</span> Skin Tracker
+          <Logo size={22} /> Skin Tracker
         </span>
       </header>
 

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import Logo from '@/components/Logo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,7 +28,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="text-6xl mb-4">🌿</div>
+          <div className="mb-4 flex justify-center"><Logo size={64} /></div>
           <h1 className="text-3xl font-bold tracking-tight text-neutral-900">Skin Tracker</h1>
           <p className="text-neutral-400 mt-2">Track your skin journey</p>
         </div>

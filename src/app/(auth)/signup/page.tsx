@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import Logo from '@/components/Logo'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -26,7 +27,7 @@ export default function SignupPage() {
     <div className="min-h-screen bg-[#F2F2F7] flex flex-col items-center justify-center px-6 pt-safe">
       <div className="w-full max-w-sm">
         <div className="text-center mb-10">
-          <div className="text-6xl mb-4">🌿</div>
+          <div className="mb-4 flex justify-center"><Logo size={64} /></div>
           <h1 className="text-3xl font-bold tracking-tight text-neutral-900">Create account</h1>
           <p className="text-neutral-400 mt-2">Start tracking your skin today</p>
         </div>
